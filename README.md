@@ -1,4 +1,4 @@
-# 0x Arbitrage Bot
+# by @proro485
 
 1. Used <strong>0x Api</strong> to fetch best swap rate available as it is a DEX aggregator.
 2. Used <strong>DODO Flashloan</strong> to get the capital required for trade.
