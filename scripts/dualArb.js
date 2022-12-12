@@ -16,16 +16,13 @@ const dualArb = async () => {
         const token2 = dualTokensList[i][1];
         const token1Add = KNOWN_TOKENS[token1];
         const token2Add = KNOWN_TOKENS[token2];
-        const borrowAmount = toBorrow(token1Add);
-        const borrowAmountStr = borrowAmount.toString();
-        const poolAdd = flashPool(token1Add);
 
         const swaps = [];
 
         const swap1 = await fetchQuote({
             sellToken: token1Add,
             buyToken: token2Add,
-            sellAmount: borrowAmountStr
+            sellAmount: 
         });
 
         const swap2 = await fetchQuote({
@@ -46,10 +43,8 @@ const dualArb = async () => {
             );
             console.log();
 
-            console.log(`Initial : ${borrowAmountStr} ${token1}`);
+            console.log(`Initial : ${amtIn} ${token1}`);
             console.log(`Final : ${amtBack} ${token1}`);
-            console.log(chalk.red("Loss :", amtBack.sub(borrowAmount)));
-            console.log(chalk.redBright("Loss %age :", (Math.abs(amtBack - borrowAmount) / borrowAmount) * 100));
             console.log();
             continue;
 
@@ -118,15 +113,6 @@ const dualArb = async () => {
                 swap2.data
             ));
 
-            await contract.dodoFlashLoan(
-                poolAdd,
-                borrowAmount,
-                swaps,
-                {
-                    gasLimit: 15000000,
-                    gasPrice: ethers.utils.parseUnits("300", "gwei"),
-                }
-            );
 
             setState();
 

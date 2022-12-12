@@ -1,11 +1,11 @@
-//SPDX-License-Identifier: UNLICENSED
+//SPDX-License-Identifier: frensware
 pragma solidity ^0.8.0;
 
 import "./uniswap/v3/ISwapRouter.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract Arbitrage is Ownable {
+contract Arbys is Ownable {
     struct Swap {
         address tokenIn;
         address tokenOut;
@@ -15,131 +15,6 @@ contract Arbitrage is Ownable {
         address spender;
         address swapTarget;
         bytes swapCallData;
-    }
-
-    struct FlashCallbackData {
-        address me;
-        address flashLoanPool;
-        uint256 loanAmount;
-        Swap[] swaps;
-    }
-
-    function dodoFlashLoan(
-        address _flashLoanPool,
-        uint256 _loanAmount,
-        Swap[] memory _swaps
-    ) external onlyOwner {
-        bytes memory data = abi.encode(
-            FlashCallbackData({
-                me: msg.sender,
-                flashLoanPool: _flashLoanPool,
-                loanAmount: _loanAmount,
-                swaps: _swaps
-            })
-        );
-
-        address loanToken = _swaps[0].tokenIn;
-
-        IDODO(_flashLoanPool).flashLoan(
-            IDODO(_flashLoanPool)._BASE_TOKEN_() == loanToken ? _loanAmount : 0,
-            IDODO(_flashLoanPool)._BASE_TOKEN_() == loanToken ? 0 : _loanAmount,
-            address(this),
-            data
-        );
-    }
-
-    function _flashLoanCallBack(
-        address,
-        uint256,
-        uint256,
-        bytes calldata data
-    ) internal {
-        FlashCallbackData memory decoded = abi.decode(
-            data,
-            (FlashCallbackData)
-        );
-
-        IERC20 loanToken = IERC20(decoded.swaps[0].tokenIn);
-
-        require(
-            loanToken.balanceOf(address(this)) >= decoded.loanAmount,
-            "Failed to borrow loan token"
-        );
-
-        for (uint8 i = 0; i < decoded.swaps.length; i++) {
-            uint256 balance = IERC20(decoded.swaps[i].tokenIn).balanceOf(
-                address(this)
-            );
-
-            bool success = zrxFillQuote(
-                decoded.swaps[i].tokenIn,
-                decoded.swaps[i].spender,
-                payable(decoded.swaps[i].swapTarget),
-                decoded.swaps[i].swapCallData
-            );
-
-            if (success) {
-                continue;
-            }
-
-            for (uint8 j = 0; j < decoded.swaps[i].routers.length; j++) {
-                if (j != decoded.swaps[i].routers.length - 1) {
-                    if (decoded.swaps[i].fees[j] == 0) {
-                        uniswapV2(
-                            decoded.swaps[i].routers[j],
-                            decoded.swaps[i].tokenIn,
-                            decoded.swaps[i].tokenOut,
-                            (balance * decoded.swaps[i].splitPercentage[j]) /
-                                100000000
-                        );
-                    } else {
-                        uniswapV3(
-                            decoded.swaps[i].routers[j],
-                            decoded.swaps[i].tokenIn,
-                            decoded.swaps[i].tokenOut,
-                            (balance * decoded.swaps[i].splitPercentage[j]) /
-                                100000000,
-                            decoded.swaps[i].fees[j]
-                        );
-                    }
-                } else {
-                    if (decoded.swaps[i].fees[j] == 0) {
-                        uniswapV2(
-                            decoded.swaps[i].routers[j],
-                            decoded.swaps[i].tokenIn,
-                            decoded.swaps[i].tokenOut,
-                            IERC20(decoded.swaps[i].tokenIn).balanceOf(
-                                address(this)
-                            )
-                        );
-                    } else {
-                        uniswapV3(
-                            decoded.swaps[i].routers[j],
-                            decoded.swaps[i].tokenIn,
-                            decoded.swaps[i].tokenOut,
-                            IERC20(decoded.swaps[i].tokenIn).balanceOf(
-                                address(this)
-                            ),
-                            decoded.swaps[i].fees[j]
-                        );
-                    }
-                }
-            }
-        }
-
-        require(
-            loanToken.balanceOf(address(this)) >= decoded.loanAmount,
-            "Not enough amount to return loan"
-        );
-
-        loanToken.transfer(decoded.flashLoanPool, decoded.loanAmount);
-
-        for (uint8 i = 0; i < decoded.swaps.length; i++) {
-            IERC20 token = IERC20(decoded.swaps[i].tokenIn);
-            if (token.balanceOf(address(this)) > 0) {
-                token.transfer(decoded.me, token.balanceOf(address(this)));
-            }
-        }
     }
 
     function zrxFillQuote(
@@ -230,43 +105,6 @@ contract Arbitrage is Ownable {
         token.transfer(msg.sender, token.balanceOf(address(this)));
     }
 
-    function DVMFlashLoanCall(
-        address sender,
-        uint256 baseAmount,
-        uint256 quoteAmount,
-        bytes calldata data
-    ) external {
-        _flashLoanCallBack(sender, baseAmount, quoteAmount, data);
-    }
-
-    function DPPFlashLoanCall(
-        address sender,
-        uint256 baseAmount,
-        uint256 quoteAmount,
-        bytes calldata data
-    ) external {
-        _flashLoanCallBack(sender, baseAmount, quoteAmount, data);
-    }
-
-    function DSPFlashLoanCall(
-        address sender,
-        uint256 baseAmount,
-        uint256 quoteAmount,
-        bytes calldata data
-    ) external {
-        _flashLoanCallBack(sender, baseAmount, quoteAmount, data);
-    }
-}
-
-interface IDODO {
-    function flashLoan(
-        uint256 baseAmount,
-        uint256 quoteAmount,
-        address assetTo,
-        bytes memory data
-    ) external;
-
-    function _BASE_TOKEN_() external view returns (address);
 }
 
 interface IUniswapV2Router {
